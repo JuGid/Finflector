@@ -31,6 +31,9 @@ class Pluralizer {
         'l\''=> 'les',
     ];
 
+    /** Words that end with this letters are not converted */
+    private const NOT_PLURALIZE = ['s', 'x', 'z'];
+
     /**
      * Words that are not under global rules
      */
@@ -84,43 +87,30 @@ class Pluralizer {
 
     private string $plural;
 
-    public function pluralize(string $words, array $options = []) : string 
+    public function pluralize(string $words) : string 
     {
-        $this->options = $options;
-        $is_first_letter_uppercase = ctype_upper($words[0]);
+        $is_ucfirst = ctype_upper($words[0]);
         $words = strtolower($words);
-
         $singular = $this->getSingular($words);
         $article_plural = $this->getArticlePlural($words);
         
         if($this->isSpecialWord($singular)) {
-            return $this->getFinalWords($article_plural, self::SPECIAL[$singular], $is_first_letter_uppercase);
+            $special_plural = self::SPECIAL[$singular];
+            return $this->getFinalWords($article_plural, $special_plural, $is_ucfirst);
         }
 
         $singular_explode = explode(' ', $singular);
+        $singular = $singular_explode[0];
+        $this->plural = $this->getPluralFromGlobalRules($singular);
 
-        $singular_taken = $singular_explode[0];
-        $this->plural = $singular_taken;
-
-        foreach(self::GLOBAL_RULES as $singular_end => $plural_end) {
-
-            $plural = $this->getPluralFor($singular_taken, $singular_end, $plural_end);
-            
-            if(empty($plural)) {
-                continue;
-            }
-            
-            $this->plural = $plural;
-        }
-
-        if($this->plural === $singular_taken && !in_array(substr($singular_taken, -1), ['s', 'x', 'z'])) {
-            $this->plural = $singular_taken . 's';
+        if($this->plural === $singular && $this->shouldNotBePluralized($singular)) {
+            $this->plural = $singular . 's';
         }        
 
         $singular_explode[0] = $this->plural;
-        $singular_implode = implode(' ', $singular_explode);
+        $final_plural = implode(' ', $singular_explode);
 
-        return $this->getFinalWords($article_plural, $singular_implode, $is_first_letter_uppercase);
+        return $this->getFinalWords($article_plural, $final_plural, $is_ucfirst);
     }
 
     private function getFinalWords(string $article, string $plural, bool $uppercase) : string {
@@ -130,6 +120,19 @@ class Pluralizer {
         } else {
             return $uppercase ? ucfirst($article . ' ' . $plural) : $article . ' ' . $plural;
         }       
+    }
+
+    private function getPluralFromGlobalRules(string $singular) : string {
+        foreach(self::GLOBAL_RULES as $singular_end => $plural_end) {
+
+            $plural = $this->getPluralFor($singular, $singular_end, $plural_end);
+            
+            if(empty($plural)) { continue; }
+            
+            return $plural;
+        }
+
+        return $singular;
     }
 
     private function getPluralFor($singular, $singular_end, $plural_end) {
@@ -142,17 +145,16 @@ class Pluralizer {
     }
 
     private function getSingular(string $words) : string {
-        foreach(self::GLOBAL_ARTICLES as $article_rule => $plural) {
+        foreach(array_keys(self::GLOBAL_ARTICLES) as $article_rule) {
+            $article = substr($words, 0, strlen($article_rule));
 
-            if(substr($words, 0, strlen($article_rule)) !== $article_rule) {
+            if($article !== $article_rule) {
                 continue;
             }
 
             $last_article_character = substr($words, strlen($article_rule)-1, 1);
-            $article = substr($words, 0, strlen($article_rule));
-
-            $sub_length = $last_article_character == '\'' ? strlen($article) : strlen($article) + 1;
-            return substr($words, $sub_length);
+            $article_offset = ($last_article_character == '\'') ? strlen($article) : strlen($article) + 1;
+            return substr($words, $article_offset);
         }
 
         return $words;
@@ -166,6 +168,10 @@ class Pluralizer {
         }
 
         return self::EMPTY_ARTICLE;
+    }
+
+    private function shouldNotBePluralized(string $word) {
+        return !in_array(substr($word, -1), self::NOT_PLURALIZE);
     }
 
     private function hasValidEndFor(string $singular, string $singular_end) : bool {
