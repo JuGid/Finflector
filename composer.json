@@ -1,0 +1,22 @@
+{
+    "name": "jugid/finflector",
+    "description": "French inflector",
+    "type": "library",
+    "require": {
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Jugid\\Finflector\\": "src/",
+            "Jugid\\Finflector\\Tests\\": "tests/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Jugid",
+            "email": "gidjulien@gmail.com"
+        }
+    ]
+}
